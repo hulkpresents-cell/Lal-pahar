@@ -1,784 +1,561 @@
-```react
-import React, { useState, useEffect, useMemo } from 'react';
+```html
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>মাংসের উন্নত হিসাব ও বন্টন</title>
+    <!-- Tailwind CSS for Modern UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
 
-export default function App() {
-  // --- স্টেট এবং ডেটা ম্যানেজমেন্ট (State & Data Management) ---
-  
-  // গরুর তালিকা স্টেট (ডিফল্ট একটি গরু দেওয়া আছে)
-  const [animals, setAnimals] = useState(() => {
-    const saved = localStorage.getItem('meat_calc_animals');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return [
-      { id: '1', name: 'গরু ১ (লাল পাহাড়ী)', totalWeight: 150, description: 'বড় লাল রঙের গরু' }
-    ];
-  });
-
-  // সক্রিয় বা সিলেক্টেড গরুর আইডি
-  const [activeAnimalId, setActiveAnimalId] = useState(() => {
-    const saved = localStorage.getItem('meat_calc_active_id');
-    return saved || '1';
-  });
-
-  // বিতরণকৃত প্রাপকদের তালিকা
-  const [recipients, setRecipients] = useState(() => {
-    const saved = localStorage.getItem('meat_calc_recipients');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return [
-      { id: 'r1', animalId: '1', name: 'রহিম চাচা', category: 'relative', weight: 5, note: 'বড় খালাতো ভাইর মাধ্যমে পাঠানো' },
-      { id: 'r2', animalId: '1', name: 'করিম মিয়া', category: 'poor', weight: 3, note: 'উত্তর পাড়ার বাসিন্দা' },
-      { id: 'r3', animalId: '1', name: 'হাসান সাহেব', category: 'neighbor', weight: 4.5, note: '৩য় তলার ফ্ল্যাট' },
-      { id: 'r4', animalId: '1', name: 'আমাদের অংশ', category: 'self', weight: 50, note: 'ফ্রিজে রাখার জন্য' },
-    ];
-  });
-
-  // নতুন গরু যুক্ত করার ফর্ম স্টেট
-  const [newAnimalName, setNewAnimalName] = useState('');
-  const [newAnimalWeight, setNewAnimalWeight] = useState('');
-  const [newAnimalDesc, setNewAnimalDesc] = useState('');
-  const [showAddAnimalModal, setShowAddAnimalModal] = useState(false);
-
-  // নতুন প্রাপক যুক্ত করার ফর্ম স্টেট
-  const [repName, setRepName] = useState('');
-  const [repCategory, setRepCategory] = useState('relative');
-  const [repWeight, setRepWeight] = useState('');
-  const [repNote, setRepNote] = useState('');
-
-  // সার্চ এবং ফিল্টার স্টেট
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
-
-  // নোটিফিকেশন সিস্টেম
-  const [notification, setNotification] = useState(null);
-
-  // --- ডাটা লোকাল স্টোরেজে সংরক্ষণ (Local Storage Sync) ---
-  useEffect(() => {
-    localStorage.setItem('meat_calc_animals', JSON.stringify(animals));
-  }, [animals]);
-
-  useEffect(() => {
-    localStorage.setItem('meat_calc_recipients', JSON.stringify(recipients));
-  }, [recipients]);
-
-  useEffect(() => {
-    localStorage.setItem('meat_calc_active_id', activeAnimalId);
-  }, [activeAnimalId]);
-
-  // নোটিফিকেশন দেখানোর ফাংশন
-  const showToast = (message, type = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  // --- গণনা ও হিসাব-নিকাশ (Calculations & Metrics) ---
-  
-  // বর্তমানে নির্বাচিত গরুর অবজেক্ট
-  const selectedAnimal = useMemo(() => {
-    return animals.find(a => a.id === activeAnimalId) || animals[0] || null;
-  }, [animals, activeAnimalId]);
-
-  // বর্তমানে নির্বাচিত গরুর মোট মাংসের ওজন
-  const totalWeight = selectedAnimal ? Number(selectedAnimal.totalWeight) : 0;
-
-  // এই গরুর জন্য বিতরণ করা প্রাপকদের তালিকা ফিল্টার
-  const currentRecipients = useMemo(() => {
-    if (!selectedAnimal) return [];
-    return recipients.filter(r => r.animalId === selectedAnimal.id);
-  }, [recipients, selectedAnimal]);
-
-  // বিভিন্ন ক্যাটাগরি অনুযায়ী মোট বন্টন হিসেব করা
-  const categoryTotals = useMemo(() => {
-    const totals = { relative: 0, neighbor: 0, poor: 0, self: 0 };
-    currentRecipients.forEach(r => {
-      if (totals[r.category] !== undefined) {
-        totals[r.category] += Number(r.weight);
-      }
-    });
-    return totals;
-  }, [currentRecipients]);
-
-  // সর্বমোট বিতরণকৃত মাংসের পরিমাণ
-  const totalDistributed = useMemo(() => {
-    return Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
-  }, [categoryTotals]);
-
-  // অবশিষ্টাংশ মাংসের পরিমাণ
-  const remainingWeight = useMemo(() => {
-    return Math.max(0, totalWeight - totalDistributed);
-  }, [totalWeight, totalDistributed]);
-
-  // শতকরা হিসেবে বন্টনের হার
-  const distributionPercentage = useMemo(() => {
-    if (totalWeight === 0) return 0;
-    return Math.min(100, Math.round((totalDistributed / totalWeight) * 100));
-  }, [totalDistributed, totalWeight]);
-
-  // সার্চ এবং ফিল্টার অনুযায়ী প্রাপকদের ফিল্টার তালিকা
-  const filteredRecipients = useMemo(() => {
-    return currentRecipients.filter(r => {
-      const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            (r.note && r.note.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesCategory = filterCategory === 'all' || r.category === filterCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [currentRecipients, searchQuery, filterCategory]);
-
-  // --- অ্যাকশন হ্যান্ডলারসমূহ (Action Handlers) ---
-
-  // ১. নতুন পণ্ড বা গরু যুক্ত করা
-  const handleAddAnimal = (e) => {
-    e.preventDefault();
-    if (!newAnimalName || !newAnimalWeight) {
-      showToast('অনুগ্রহ করে নাম এবং মোট ওজন সঠিকভাবে দিন', 'error');
-      return;
-    }
-    const newId = Date.now().toString();
-    const newAnimal = {
-      id: newId,
-      name: newAnimalName,
-      totalWeight: parseFloat(newAnimalWeight),
-      description: newAnimalDesc
-    };
-    setAnimals([...animals, newAnimal]);
-    setActiveAnimalId(newId);
-    setNewAnimalName('');
-    setNewAnimalWeight('');
-    setNewAnimalDesc('');
-    setShowAddAnimalModal(false);
-    showToast('নতুন গরুর তথ্য সফলভাবে যুক্ত হয়েছে!');
-  };
-
-  // ২. নির্বাচিত গরু ডিলিট করা
-  const handleDeleteAnimal = (id) => {
-    if (animals.length <= 1) {
-      showToast('কমপক্ষে একটি গরুর তথ্য তালিকায় থাকতে হবে!', 'error');
-      return;
-    }
-    if (window.confirm('আপনি কি নিশ্চিত যে এই গরুর সমস্ত ডাটা মুছে ফেলতে চান?')) {
-      const remainingAnimals = animals.filter(a => a.id !== id);
-      setAnimals(remainingAnimals);
-      setRecipients(recipients.filter(r => r.animalId !== id)); // সংশ্লিষ্ট প্রাপকও ডিলিট হবে
-      setActiveAnimalId(remainingAnimals[0].id);
-      showToast('গরুর তথ্য এবং এর যাবতীয় হিসাব মুছে ফেলা হয়েছে', 'info');
-    }
-  };
-
-  // ৩. নতুন মাংস বিতরণ এন্ট্রি করা
-  const handleAddRecipient = (e) => {
-    e.preventDefault();
-    if (!repName || !repWeight) {
-      showToast('অনুগ্রহ করে নাম এবং ওজন নির্ধারণ করুন', 'error');
-      return;
-    }
-    const weightVal = parseFloat(repWeight);
-    if (weightVal <= 0) {
-      showToast('মাংসের ওজন অবশ্যই শূন্যের চেয়ে বেশি হতে হবে', 'error');
-      return;
-    }
-    if (weightVal > remainingWeight) {
-      if (!window.confirm(`সতর্কতা: আপনার কাছে মাত্র ${remainingWeight} কেজি মাংস অবশিষ্ট আছে। আপনি কি অতিরিক্ত ${weightVal - remainingWeight} কেজি এন্ট্রি করতে চান?`)) {
-        return;
-      }
-    }
-
-    const newRep = {
-      id: Date.now().toString(),
-      animalId: selectedAnimal.id,
-      name: repName,
-      category: repCategory,
-      weight: weightVal,
-      note: repNote
-    };
-
-    setRecipients([newRep, ...recipients]);
-    setRepName('');
-    setRepWeight('');
-    setRepNote('');
-    showToast(`${repName}-এর জন্য ${weightVal} কেজি সফলভাবে এন্ট্রি হয়েছে`);
-  };
-
-  // ৪. কোনো প্রাপকের এন্ট্রি ডিলিট করা
-  const handleDeleteRecipient = (id) => {
-    const rep = recipients.find(r => r.id === id);
-    setRecipients(recipients.filter(r => r.id !== id));
-    if (rep) {
-      showToast(`${rep.name}-এর হিসাবটি মুছে ফেলা হয়েছে`, 'info');
-    }
-  };
-
-  // ৫. তাৎক্ষণিক ৩ ভাগে সমান বন্টন (ইসলামী অনুশাসন অনুযায়ী অটো-স্প্লিট)
-  const handleAutoThreeWaySplit = () => {
-    if (totalWeight <= 0) {
-      showToast('অনুগ্রহ করে প্রথমে গরুর মোট ওজন সেট করুন', 'error');
-      return;
-    }
-    if (currentRecipients.length > 0) {
-      if (!window.confirm('৩ ভাগে সমান বন্টন করলে এই গরুর বর্তমান সমস্ত বিতরণ এন্ট্রি মুছে যাবে। আপনি কি নিশ্চিত?')) {
-        return;
-      }
-    }
-
-    const share = parseFloat((totalWeight / 3).toFixed(2));
-    const autoReps = [
-      {
-        id: Date.now().toString() + '-1',
-        animalId: selectedAnimal.id,
-        name: 'আত্মীয়-স্বজনদের অংশ (১/৩)',
-        category: 'relative',
-        weight: share,
-        note: 'স্বয়ংক্রিয় ৩ ভাগের ১ ভাগ'
-      },
-      {
-        id: Date.now().toString() + '-2',
-        animalId: selectedAnimal.id,
-        name: 'দরিদ্র ও অভাবীদের অংশ (১/৩)',
-        category: 'poor',
-        weight: share,
-        note: 'স্বয়ংক্রিয় ৩ ভাগের ১ ভাগ'
-      },
-      {
-        id: Date.now().toString() + '-3',
-        animalId: selectedAnimal.id,
-        name: 'নিজের পরিবারের অংশ (১/৩)',
-        category: 'self',
-        weight: share,
-        note: 'স্বয়ংক্রিয় ৩ ভাগের ১ ভাগ'
-      }
-    ];
-
-    // পুরনো ডাটা ফেলে দিয়ে শুধু নতুন ৩টি বন্টন সেট করা
-    setRecipients([
-      ...recipients.filter(r => r.animalId !== selectedAnimal.id),
-      ...autoReps
-    ]);
-    showToast('সফলভাবে ৩ ভাগে সমান বন্টন করা হয়েছে!');
-  };
-
-  // ৬. প্রিন্ট করার সুবিধা
-  const handlePrint = () => {
-    window.print();
-  };
-
-  // ক্যাটাগরির বাংলা নাম এবং স্টাইল ম্যাপিং
-  const categoryMeta = {
-    relative: { label: 'আত্মীয়-স্বজন', color: 'bg-indigo-500', text: 'text-indigo-600', border: 'border-indigo-100', bg: 'bg-indigo-50' },
-    neighbor: { label: 'প্রতিবেশী', color: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-100', bg: 'bg-blue-50' },
-    poor: { label: 'গরীব ও দুস্থ', color: 'bg-rose-500', text: 'text-rose-600', border: 'border-rose-100', bg: 'bg-rose-50' },
-    self: { label: 'নিজের অংশ', color: 'bg-amber-500', text: 'text-amber-600', border: 'border-amber-100', bg: 'bg-amber-50' },
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-      
-      {/* নোটিফিকেশন টোস্ট */}
-      {notification && (
-        <div className="fixed top-5 right-5 z-50 flex items-center p-4 rounded-xl shadow-xl transition-all duration-300 transform translate-y-0 bg-white border-l-4 border-emerald-500">
-          <div className="mr-3">
-            {notification.type === 'error' ? (
-              <span className="text-red-500 font-bold">⚠️</span>
-            ) : (
-              <span className="text-emerald-500 font-bold">✓</span>
-            )}
-          </div>
-          <p className="text-sm font-medium text-slate-700">{notification.message}</p>
-        </div>
-      )}
-
-      {/* --- প্রধান হেডার --- */}
-      <header className="bg-gradient-to-r from-emerald-800 to-teal-700 text-white shadow-md print:hidden">
-        <div className="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="bg-white/10 p-2.5 rounded-2xl">
-              {/* গরুর আইকন */}
-              <svg className="w-8 h-8 text-emerald-200" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 13.5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5.67 1.5 1.5 1.5 1.5-.67 1.5-1.5M22 10V8.5c0-.83-.67-1.5-1.5-1.5H19c-.8 0-1.5-.5-1.8-1.2l-1-2c-.3-.6-.9-1-1.6-1H11c-.7 0-1.3.4-1.6 1l-1 2C8.1 6.5 7.4 7 6.6 7H5c-.8 0-1.5.7-1.5 1.5V10c-1.1 0-2 .9-2 2v5c0 .6.4 1 1 1h1v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h8v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h1c.6 0 1-.4 1-1v-5c0-1.1-.9-2-2-2zM9.4 6L10 4.8c.1-.2.3-.3.5-.3h3c.2 0 .4.1.5.3L14.6 6H9.4z" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">কোরবানির মাংস বন্টন ও হিসাব</h1>
-              <p className="text-xs text-emerald-100 mt-0.5">স্মার্ট ও নিখুঁত উপায়ে মাংসের অংশ ও বিতরণ তালিকা ব্যবস্থাপনা</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 active:bg-white/30 rounded-xl transition font-medium text-sm border border-white/20"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              রিপোর্ট প্রিন্ট করুন
-            </button>
-            <button 
-              onClick={() => setShowAddAnimalModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-900 rounded-xl transition font-semibold text-sm shadow-md"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
-              নতুন পশু যুক্ত করুন
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* --- মূল কন্টেন্ট এরিয়া --- */}
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        
-        {/* গরুর নির্বাচন বার (পশু নির্বাচনকারী) */}
-        <section className="mb-6 print:hidden">
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-            <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">হিসাব করার জন্য পশু নির্বাচন করুন:</span>
-            <div className="flex flex-wrap gap-2">
-              {animals.map((animal) => (
-                <div key={animal.id} className="relative group flex items-center">
-                  <button
-                    onClick={() => setActiveAnimalId(animal.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition ${
-                      activeAnimalId === animal.id
-                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-100'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <span>🥩 {animal.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      activeAnimalId === animal.id ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
-                    }`}>
-                      {animal.totalWeight} কেজি
-                    </span>
-                  </button>
-                  {/* ডিলিট বাটন (শুধুমাত্র একটির বেশি গরু থাকলে সচল হবে) */}
-                  {animals.length > 1 && (
-                    <button
-                      onClick={() => handleDeleteAnimal(animal.id)}
-                      className="ml-1 p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition"
-                      title="মুছে ফেলুন"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* যদি কোনো পশু সিলেক্টেড না থাকে */}
-        {!selectedAnimal ? (
-          <div className="text-center py-16 bg-white rounded-3xl shadow-sm border border-slate-100">
-            <p className="text-slate-400 mb-4 text-lg">কোনো পশুর তথ্য পাওয়া যায়নি!</p>
-            <button 
-              onClick={() => setShowAddAnimalModal(true)}
-              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition"
-            >
-              নতুন পশু যুক্ত করুন
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* ================= বাঁদিকের কলাম: স্ট্যাটিস্টিকস ও ড্যাশবোর্ড ================= */}
-            <div className="lg:col-span-1 space-y-6">
-              
-              {/* গরুর প্রোফাইল ও মূল ওজন কার্ড */}
-              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -mr-6 -mt-6"></div>
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">বর্তমানে নির্বাচিত পশু</h3>
-                    <h2 className="text-xl font-bold text-slate-800 mt-1">{selectedAnimal.name}</h2>
-                    {selectedAnimal.description && (
-                      <p className="text-xs text-slate-500 mt-1">{selectedAnimal.description}</p>
-                    )}
-                  </div>
-                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
-                    সক্রিয় হিসাব
-                  </span>
-                </div>
-
-                {/* মূল ওজন */}
-                <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-2xl flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-xs text-slate-300">মোট মাংসের পরিমাণ</p>
-                    <p className="text-3xl font-extrabold mt-1">{totalWeight} <span className="text-lg font-normal">কেজি</span></p>
-                  </div>
-                  <div className="text-3xl opacity-75">⚖️</div>
-                </div>
-
-                {/* বিতরণ ও অবশিষ্ট মিটার */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
-                    <p className="text-xs text-emerald-700 font-medium">মোট বিতরণ</p>
-                    <p className="text-lg font-bold text-emerald-800 mt-1">{totalDistributed} কেজি</p>
-                  </div>
-                  <div className="p-3 bg-rose-50/50 rounded-xl border border-rose-100/50">
-                    <p className="text-xs text-rose-700 font-medium">অবশিষ্ট মাংস</p>
-                    <p className="text-lg font-bold text-rose-800 mt-1">{remainingWeight} কেজি</p>
-                  </div>
-                </div>
-
-                {/* প্রগ্রেস বার */}
-                <div>
-                  <div className="flex justify-between text-xs font-semibold text-slate-500 mb-1">
-                    <span>বন্টনের অগ্রগতি</span>
-                    <span>{distributionPercentage}% সম্পন্ন</span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${distributionPercentage}%` }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ইসলামী পদ্ধতিতে ৩ ভাগ করার শর্টকাট */}
-              <div className="bg-emerald-50 p-5 rounded-3xl border border-emerald-100/70 print:hidden">
-                <div className="flex items-start gap-3">
-                  <div className="bg-emerald-500 text-white text-lg p-1.5 rounded-xl">
-                    🕌
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-emerald-900">৩ ভাগে সমান বন্টন</h4>
-                    <p className="text-xs text-emerald-700 mt-1">
-                      ইসলামী বিধি অনুযায়ী পুরো কুরবানির মাংস আত্মীয়, অভাবী এবং নিজের পরিবারের জন্য সমভাবে ১/৩ অংশ করে বন্টন করুন।
-                    </p>
-                    <button
-                      onClick={handleAutoThreeWaySplit}
-                      className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                      </svg>
-                      স্বয়ংক্রিয় ৩ ভাগ করুন
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* চার্ট ভিউ (ভাগ অনুযায়ী বন্টন অনুপাত) */}
-              <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                <h3 className="text-sm font-bold text-slate-800 mb-4">ক্যাটাগরি ভিত্তিক বন্টন চিত্র</h3>
-                <div className="space-y-3">
-                  {Object.entries(categoryMeta).map(([key, meta]) => {
-                    const value = categoryTotals[key] || 0;
-                    const percent = totalWeight > 0 ? Math.round((value / totalWeight) * 100) : 0;
-                    return (
-                      <div key={key} className="space-y-1">
-                        <div className="flex justify-between text-xs text-slate-600">
-                          <span className="flex items-center gap-1.5 font-medium">
-                            <span className={`w-2.5 h-2.5 rounded-full ${meta.color}`}></span>
-                            {meta.label}
-                          </span>
-                          <span className="font-bold">{value} কেজি ({percent}%)</span>
-                        </div>
-                        <div className="w-full bg-slate-50 h-1.5 rounded-full">
-                          <div 
-                            className={`h-full rounded-full ${meta.color}`}
-                            style={{ width: `${percent}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-            </div>
-
-            {/* ================= ডানদিকের ২ কলাম: বন্টন যোগ এবং তালিকা ================= */}
-            <div className="lg:col-span-2 space-y-6">
-              
-              {/* মাংস বিতরণ যোগ করার ফর্ম */}
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 print:hidden">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                  <span>➕</span> নতুন বিতরণ যুক্ত করুন
-                </h3>
-                
-                <form onSubmit={handleAddRecipient} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* নাম */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">প্রাপকের নাম / দলের নাম</label>
-                    <input 
-                      type="text" 
-                      placeholder="যেমন: জসিম সাহেব, মাদরাসার লিল্লাহ ফান্ড" 
-                      value={repName}
-                      onChange={(e) => setRepName(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                      required
-                    />
-                  </div>
-
-                  {/* ক্যাটাগরি */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">ক্যাটাগরি বা গ্রুপ</label>
-                    <select 
-                      value={repCategory}
-                      onChange={(e) => setRepCategory(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white"
-                    >
-                      <option value="relative">আত্মীয়-স্বজন (Relative)</option>
-                      <option value="neighbor">প্রতিবেশী (Neighbor)</option>
-                      <option value="poor">গরীব ও দুস্থ (Poor/Charity)</option>
-                      <option value="self">নিজের অংশ (Self/Family)</option>
-                    </select>
-                  </div>
-
-                  {/* মাংসের ওজন */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">মাংসের ওজন (কেজি)</label>
-                    <div className="relative">
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        placeholder="যেমন: ৪.৫" 
-                        value={repWeight}
-                        onChange={(e) => setRepWeight(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                        required
-                      />
-                      <span className="absolute right-4 top-2.5 text-sm font-semibold text-slate-400">কেজি</span>
-                    </div>
-                  </div>
-
-                  {/* মন্তব্য/নোট */}
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-1">মন্তব্য (ঐচ্ছিক)</label>
-                    <input 
-                      type="text" 
-                      placeholder="যেমন: রিকশা দিয়ে পাঠানো হয়েছে" 
-                      value={repNote}
-                      onChange={(e) => setRepNote(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                    />
-                  </div>
-
-                  {/* সাবমিট বাটন */}
-                  <div className="md:col-span-2 flex justify-end mt-2">
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-semibold text-sm transition shadow-md w-full md:w-auto"
-                    >
-                      তালিকায় যুক্ত করুন
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* বিতরণকৃত প্রাপকদের তালিকা টেবিল */}
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                
-                {/* টেবিল হেডার / সার্চ ফিল্টার */}
-                <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 print:hidden">
-                  <div>
-                    <h3 className="font-bold text-slate-800">বিতরণ ও বন্টনের তালিকা</h3>
-                    <p className="text-xs text-slate-500">মোট {currentRecipients.length} টি এন্ট্রি পাওয়া গেছে</p>
-                  </div>
-
-                  {/* সার্চ ও ফিল্টার কন্ট্রোল */}
-                  <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                    {/* সার্চ বক্স */}
-                    <div className="relative flex-grow">
-                      <span className="absolute left-3 top-2.5 text-slate-400">🔍</span>
-                      <input 
-                        type="text" 
-                        placeholder="নাম দিয়ে খুঁজুন..." 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                      />
-                    </div>
-                    {/* ক্যাটাগরি ফিল্টার */}
-                    <select 
-                      value={filterCategory}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
-                    >
-                      <option value="all">সব ক্যাটাগরি</option>
-                      <option value="relative">আত্মীয়-স্বজন</option>
-                      <option value="neighbor">প্রতিবেশী</option>
-                      <option value="poor">গরীব ও দুস্থ</option>
-                      <option value="self">নিজের অংশ</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* প্রিন্ট ভিউতে প্রদর্শিত হেডার */}
-                <div className="hidden print:block p-6 text-center border-b border-slate-200">
-                  <h2 className="text-2xl font-bold text-slate-800">মাংস বন্টন ও বিতরণী রশিদ</h2>
-                  <p className="text-sm text-slate-500 mt-1">পশু: {selectedAnimal.name} | মোট ওজন: {totalWeight} কেজি</p>
-                  <p className="text-xs text-slate-400 mt-0.5">তারিখ: {new Date().toLocaleDateString('bn-BD')} খ্রিস্টাব্দ</p>
-                </div>
-
-                {/* মূল টেবিল */}
-                <div className="overflow-x-auto">
-                  {filteredRecipients.length === 0 ? (
-                    <div className="text-center py-12">
-                      <p className="text-slate-400 text-sm">কোনো বন্টনের এন্ট্রি পাওয়া যায়নি!</p>
-                    </div>
-                  ) : (
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-                          <th className="py-3 px-5 text-right w-12">ক্র.</th>
-                          <th className="py-3 px-4">প্রাপকের নাম</th>
-                          <th className="py-3 px-4">ক্যাটাগরি</th>
-                          <th className="py-3 px-4 text-right">পরিমাণ (কেজি)</th>
-                          <th className="py-3 px-4 hidden sm:table-cell">মন্তব্য</th>
-                          <th className="py-3 px-4 text-center w-16 print:hidden">অ্যাকশন</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                        {filteredRecipients.map((item, index) => {
-                          const meta = categoryMeta[item.category];
-                          return (
-                            <tr key={item.id} className="hover:bg-slate-50/50 transition">
-                              <td className="py-3.5 px-5 text-right text-slate-400 font-mono text-xs">{index + 1}</td>
-                              <td className="py-3.5 px-4 font-semibold text-slate-800">{item.name}</td>
-                              <td className="py-3.5 px-4">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${meta.text} ${meta.bg} border ${meta.border}`}>
-                                  {meta.label}
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-bold text-slate-900">{item.weight} কেজি</td>
-                              <td className="py-3.5 px-4 text-slate-500 text-xs hidden sm:table-cell max-w-xs truncate" title={item.note}>
-                                {item.note || '—'}
-                              </td>
-                              <td className="py-3.5 px-4 text-center print:hidden">
-                                <button
-                                  onClick={() => handleDeleteRecipient(item.id)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                                  title="মুছে ফেলুন"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-
-                {/* টেবিল ফুটারে সারসংক্ষেপ */}
-                <div className="bg-slate-50 p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center text-xs font-semibold text-slate-600 gap-3">
-                  <div className="flex gap-4">
-                    <span>মোট প্রাপক: <strong className="text-slate-800 text-sm">{filteredRecipients.length} জন</strong></span>
-                    <span>মোট বিতরণকৃত: <strong className="text-emerald-700 text-sm">{totalDistributed} কেজি</strong></span>
-                  </div>
-                  <div className="text-rose-700">
-                    অবশিষ্ট আছে: <span className="text-sm font-bold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">{remainingWeight} কেজি</span>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* প্রিন্ট করার সময় স্বাক্ষরের স্থান */}
-              <div className="hidden print:flex justify-between mt-12 px-6 pt-12 border-t border-dashed border-slate-200">
-                <div>
-                  <p className="border-t border-slate-300 pt-1 px-4 text-center text-xs text-slate-500">হিসাব রক্ষকের স্বাক্ষর</p>
-                </div>
-                <div>
-                  <p className="border-t border-slate-300 pt-1 px-4 text-center text-xs text-slate-500">পরিবার প্রধানের স্বাক্ষর</p>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-      </main>
-
-      {/* --- নতুন পশু (গরু) যুক্ত করার মডাল উইন্ডো --- */}
-      {showAddAnimalModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-800">নতুন পশুর তথ্য যুক্ত করুন</h3>
-              <button 
-                onClick={() => setShowAddAnimalModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleAddAnimal} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">পশুর নাম বা আইডি</label>
-                <input 
-                  type="text" 
-                  placeholder="যেমন: লাল বাহাদুর, গরু নং-৩" 
-                  value={newAnimalName}
-                  onChange={(e) => setNewAnimalName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">মোট মাংসের অনুমিত পরিমাণ (কেজি)</label>
-                <div className="relative">
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    placeholder="যেমন: ২০০" 
-                    value={newAnimalWeight}
-                    onChange={(e) => setNewAnimalWeight(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                    required
-                  />
-                  <span className="absolute right-4 top-2.5 text-sm font-semibold text-slate-400">কেজি</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">বর্ণনা বা নোট (ঐচ্ছিক)</label>
-                <textarea 
-                  placeholder="যেমন: ৩ জনের অংশীদারী কুরবানি" 
-                  value={newAnimalDesc}
-                  onChange={(e) => setNewAnimalDesc(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm h-20 resize-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddAnimalModal(false)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition"
-                >
-                  বাতিল
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition shadow-md"
-                >
-                  পশু যোগ করুন
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* --- ফুটার --- */}
-      <footer className="mt-12 bg-white border-t border-slate-100 py-6 text-center text-xs text-slate-400 print:hidden">
-        <p>© {new Date().getFullYear()} মাংসের উন্নত হিসাব এপ্লিকেশন। সর্বস্বত্ব সংরক্ষিত।</p>
-        <p className="mt-1 text-emerald-600 font-medium">নিরাপদ থাকুন, খুশিমনে ত্যাগ স্বীকার ও বন্টন করুন।</p>
-      </footer>
-
+    <!-- নোটিফিকেশন টোস্ট -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-100px] opacity-0 transition-all duration-300 flex items-center p-4 rounded-xl shadow-xl bg-white border-l-4 border-emerald-500">
+        <span id="toast-icon" class="mr-2 text-lg">✓</span>
+        <p id="toast-message" class="text-sm font-medium text-slate-700"></p>
     </div>
-  );
-}
+
+    <!-- প্রধান হেডার -->
+    <header class="bg-gradient-to-r from-emerald-800 to-teal-700 text-white shadow-md no-print">
+        <div class="max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 p-2.5 rounded-2xl">
+                    <!-- পশুর আইকন -->
+                    <svg class="w-8 h-8 text-emerald-200" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 13.5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5.67 1.5 1.5 1.5 1.5-.67 1.5-1.5M22 10V8.5c0-.83-.67-1.5-1.5-1.5H19c-.8 0-1.5-.5-1.8-1.2l-1-2c-.3-.6-.9-1-1.6-1H11c-.7 0-1.3.4-1.6 1l-1 2C8.1 6.5 7.4 7 6.6 7H5c-.8 0-1.5.7-1.5 1.5V10c-1.1 0-2 .9-2 2v5c0 .6.4 1 1 1h1v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h8v3c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-3h1c.6 0 1-.4 1-1v-5c0-1.1-.9-2-2-2zM9.4 6L10 4.8c.1-.2.3-.3.5-.3h3c.2 0 .4.1.5.3L14.6 6H9.4z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">কোরবানির মাংস বন্টন ও হিসাব</h1>
+                    <p class="text-xs text-emerald-100 mt-0.5">সহজ উপায়ে মাংসের অংশ ও বিতরণ তালিকা ব্যবস্থাপনা</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="window.print()" class="flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 active:bg-white/30 rounded-xl transition font-medium text-sm border border-white/20">
+                    🖨️ প্রিন্ট / PDF সংরক্ষণ
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- প্রধান কন্টেন্ট এরিয়া -->
+    <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- বামদিকের কলাম: সেটিংস ও ড্যাশবোর্ড -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- গরুর বিবরণ ও মোট ওজন কার্ড -->
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">পশুর সাধারণ তথ্য</h3>
+                    
+                    <div class="space-y-4 no-print">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">পশুর নাম বা নম্বর</label>
+                            <input type="text" id="animal-name" value="গরু ১ (লাল রঙ)" oninput="updateAnimalInfo()" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">মোট মাংসের পরিমাণ (কেজি)</label>
+                            <input type="number" id="total-weight" value="150" oninput="updateCalculations()" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-bold text-slate-800">
+                        </div>
+                    </div>
+
+                    <!-- প্রিন্ট করার সময় শুধু লেখা দেখাবে, ইনপুট না -->
+                    <div class="hidden print:block border-b pb-4 mb-4">
+                        <p class="text-lg font-bold text-slate-800" id="print-animal-name">গরু ১ (লাল রঙ)</p>
+                    </div>
+
+                    <!-- মোট ওজন ডিসপ্লে -->
+                    <div class="bg-slate-900 text-white p-4 rounded-2xl flex items-center justify-between mt-4">
+                        <div>
+                            <p class="text-xs text-slate-300">মোট মাংসের পরিমাণ</p>
+                            <p class="text-3xl font-extrabold mt-1"><span id="display-total-weight">150</span> <span class="text-lg font-normal">কেজি</span></p>
+                        </div>
+                        <div class="text-3xl">⚖️</div>
+                    </div>
+
+                    <!-- বিতরণ ও অবশিষ্ট মিটার -->
+                    <div class="grid grid-cols-2 gap-3 mt-4">
+                        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                            <p class="text-xs text-emerald-700 font-medium">মোট বিতরণ</p>
+                            <p class="text-lg font-bold text-emerald-800 mt-1"><span id="display-distributed">0</span> কেজি</p>
+                        </div>
+                        <div class="p-3 bg-rose-50 rounded-xl border border-rose-100">
+                            <p class="text-xs text-rose-700 font-medium">অবশিষ্ট মাংস</p>
+                            <p class="text-lg font-bold text-rose-800 mt-1"><span id="display-remaining">150</span> কেজি</p>
+                        </div>
+                    </div>
+
+                    <!-- প্রগ্রেস বার -->
+                    <div class="mt-4">
+                        <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1">
+                          <span>বন্টনের অগ্রগতি</span>
+                          <span><span id="display-percent">0</span>% সম্পন্ন</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div id="progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ৩ ভাগে সমান বন্টনের শর্টকাট -->
+                <div class="bg-emerald-50 p-5 rounded-3xl border border-emerald-100 no-print">
+                    <div class="flex items-start gap-3">
+                        <div class="bg-emerald-500 text-white text-lg p-1.5 rounded-xl">🕌</div>
+                        <div>
+                            <h4 class="font-bold text-emerald-900">৩ ভাগে সমান বন্টন</h4>
+                            <p class="text-xs text-emerald-700 mt-1">
+                                ইসলামিক নিয়ম অনুযায়ী পুরো মাংসকে আত্মীয়, গরীব এবং নিজের পরিবারের জন্য সমভাবে ৩ ভাগে ভাগ করুন।
+                            </p>
+                            <button onclick="autoThreeWaySplit()" class="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition">
+                                🔄 অটো ৩ ভাগ করুন
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- বন্টনের পাই-চার্ট ডামি বিবরণ -->
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                    <h3 class="text-sm font-bold text-slate-800 mb-4">ক্যাটাগরি ভিত্তিক বন্টন</h3>
+                    <div class="space-y-3">
+                        <!-- আত্মীয় -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-slate-600">
+                                <span class="flex items-center gap-1.5 font-medium">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> আত্মীয়-স্বজন
+                                </span>
+                                <span class="font-bold"><span id="sum-relative">0</span> কেজি</span>
+                            </div>
+                            <div class="w-full bg-slate-50 h-1.5 rounded-full">
+                                <div id="bar-relative" class="h-full rounded-full bg-indigo-500 transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <!-- প্রতিবেশী -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-slate-600">
+                                <span class="flex items-center gap-1.5 font-medium">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span> প্রতিবেশী
+                                </span>
+                                <span class="font-bold"><span id="sum-neighbor">0</span> কেজি</span>
+                            </div>
+                            <div class="w-full bg-slate-50 h-1.5 rounded-full">
+                                <div id="bar-neighbor" class="h-full rounded-full bg-blue-500 transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <!-- গরীব ও দুস্থ -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-slate-600">
+                                <span class="flex items-center gap-1.5 font-medium">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> গরীব ও দুস্থ
+                                </span>
+                                <span class="font-bold"><span id="sum-poor">0</span> কেজি</span>
+                            </div>
+                            <div class="w-full bg-slate-50 h-1.5 rounded-full">
+                                <div id="bar-poor" class="h-full rounded-full bg-rose-500 transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <!-- নিজের অংশ -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs text-slate-600">
+                                <span class="flex items-center gap-1.5 font-medium">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> নিজের অংশ
+                                </span>
+                                <span class="font-bold"><span id="sum-self">0</span> কেজি</span>
+                            </div>
+                            <div class="w-full bg-slate-50 h-1.5 rounded-full">
+                                <div id="bar-self" class="h-full rounded-full bg-amber-500 transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ডানদিকের ২ কলাম: নতুন বন্টন যোগ এবং তালিকা -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- ফর্ম: নতুন এন্ট্রি যোগ করা -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 no-print">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span>➕</span> নতুন বিতরণ বা প্রাপক যুক্ত করুন
+                    </h3>
+                    <form id="distribution-form" onsubmit="addRecipient(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">প্রাপকের নাম / দলের নাম</label>
+                            <input type="text" id="recipient-name" placeholder="যেমন: রহিম মামা, করিম চাচা, বা নিজের অংশ" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" required>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">ক্যাটাগরি বা গ্রুপ</label>
+                            <select id="recipient-category" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white">
+                                <option value="relative">আত্মীয়-স্বজন (Relative)</option>
+                                <option value="neighbor">প্রতিবেশী (Neighbor)</option>
+                                <option value="poor">গরীব ও দুস্থ (Poor/Charity)</option>
+                                <option value="self">নিজের অংশ (Self/Family)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">মাংসের পরিমাণ (কেজি)</label>
+                            <div class="relative">
+                                <input type="number" id="recipient-weight" step="0.01" placeholder="যেমন: ৫.৫" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm" required>
+                                <span class="absolute right-4 top-2.5 text-sm font-semibold text-slate-400">কেজি</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">মন্তব্য (ঐচ্ছিক)</label>
+                            <input type="text" id="recipient-note" placeholder="যেমন: উত্তর পাড়ার বাড়ি" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                        </div>
+
+                        <div class="md:col-span-2 flex justify-end mt-2">
+                            <button type="submit" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-semibold text-sm transition shadow-md w-full md:w-auto">
+                                তালিকায় যুক্ত করুন
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- তালিকা টেবিল -->
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                    
+                    <div class="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 no-print">
+                        <div>
+                            <h3 class="font-bold text-slate-800">বিতরণ ও বন্টনের তালিকা</h3>
+                            <p class="text-xs text-slate-500">মোট বিতরণ এন্ট্রি নিচে সংরক্ষিত রয়েছে</p>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button onclick="clearAllData()" class="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs transition">
+                                🗑️ সব মুছুন
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- প্রিন্ট ভিউতে প্রদর্শিত হেডার -->
+                    <div class="hidden print:block p-6 text-center border-b border-slate-200">
+                        <h2 class="text-2xl font-bold text-slate-800">মাংস বন্টন ও বিতরণী রশিদ</h2>
+                        <p class="text-sm text-slate-500 mt-1">পশু: <span id="print-view-animal-name">গরু ১</span> | মোট মাংস: <span id="print-view-total-weight">0</span> কেজি</p>
+                        <p class="text-xs text-slate-400 mt-1">তারিখ: <span id="print-date"></span></p>
+                    </div>
+
+                    <!-- মূল টেবিল -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-100 bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                                    <th class="py-3 px-5 text-right w-12">ক্র.</th>
+                                    <th class="py-3 px-4 text-left">প্রাপকের নাম</th>
+                                    <th class="py-3 px-4 text-left">ক্যাটাগরি</th>
+                                    <th class="py-3 px-4 text-right">পরিমাণ (কেজি)</th>
+                                    <th class="py-3 px-4 text-left hidden sm:table-cell">মন্তব্য</th>
+                                    <th class="py-3 px-4 text-center w-16 no-print">অ্যাকশন</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recipient-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
+                                <!-- জাভাস্ক্রিপ্ট দ্বারা লোড হবে -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- টেবিল ফুটার সারসংক্ষেপ -->
+                    <div class="bg-slate-50 p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center text-xs font-semibold text-slate-600 gap-3">
+                        <div class="flex gap-4">
+                            <span>মোট প্রাপক: <strong id="summary-count" class="text-slate-800 text-sm">০ জন</strong></span>
+                            <span>মোট বিতরণকৃত: <strong id="summary-distributed" class="text-emerald-700 text-sm">০ কেজি</strong></span>
+                        </div>
+                        <div class="text-rose-700">
+                            অবশিষ্ট আছে: <span id="summary-remaining" class="text-sm font-bold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">০ কেজি</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- প্রিন্ট করার সময় স্বাক্ষরের জায়গা -->
+                <div class="hidden print:flex justify-between mt-16 px-6 pt-12 border-t border-dashed border-slate-200">
+                    <div>
+                        <p class="border-t border-slate-300 pt-1 px-6 text-center text-xs text-slate-500">বিতরণকারী</p>
+                    </div>
+                    <div>
+                        <p class="border-t border-slate-300 pt-1 px-6 text-center text-xs text-slate-500">পরিবার প্রধান</p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ফুটার -->
+    <footer class="mt-12 bg-white border-t border-slate-100 py-6 text-center text-xs text-slate-400 no-print">
+        <p>© ২০২৬ মাংসের উন্নত বন্টন ও হিসাব ক্যালকুলেটর।</p>
+        <p class="mt-1 text-emerald-600 font-medium">নিখুঁত ও সুন্দর বন্টনের সহজ ডিজিটাল সমাধান।</p>
+    </footer>
+
+    <!-- অ্যাপ্লিকেশন লজিক (জাভাস্ক্রিপ্ট) -->
+    <script>
+        // --- ক্যাটাগরি কনফিগারেশন ---
+        const categoryMeta = {
+            relative: { label: 'আত্মীয়-স্বজন', textClass: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
+            neighbor: { label: 'প্রতিবেশী', textClass: 'text-blue-600 bg-blue-50 border-blue-100' },
+            poor: { label: 'গরীব ও দুস্থ', textClass: 'text-rose-600 bg-rose-50 border-rose-100' },
+            self: { label: 'নিজের অংশ', textClass: 'text-amber-600 bg-amber-50 border-amber-100' }
+        };
+
+        // --- ডিফল্ট ডামি ডেটা সেটআপ ---
+        const defaultRecipients = [
+            { id: '1', name: 'রহিম মামা', category: 'relative', weight: 10, note: 'বড় খালাতো ভাইয়ের পরিবার' },
+            { id: '2', name: 'উত্তর পাড়ার গরীব পরিবারসমূহ', category: 'poor', weight: 50, note: 'মাদ্রাসার মাধ্যমে বিতরণ' },
+            { id: '3', name: 'হাসান সাহেব (ফ্ল্যাট ৪বি)', category: 'neighbor', weight: 5, note: 'পাশের ফ্ল্যাট' },
+            { id: '4', name: 'আমাদের নিজেদের অংশ', category: 'self', weight: 45, note: 'ফ্রিজ ও আপ্যায়ন' }
+        ];
+
+        // --- লোকাল স্টোরেজ থেকে ডেটা লোড করা ---
+        let recipients = JSON.parse(localStorage.getItem('meat_recipients')) || defaultRecipients;
+
+        // নোটিফিকেশন দেখানোর ফাংশন
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMessage.textContent = message;
+            if (isError) {
+                toast.classList.replace('border-emerald-500', 'border-rose-500');
+                toastIcon.textContent = '⚠️';
+            } else {
+                toast.classList.replace('border-rose-500', 'border-emerald-500');
+                toastIcon.textContent = '✓';
+            }
+
+            // অ্যানিমেশন সচল করা
+            toast.classList.remove('translate-y-[-100px]', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-[-100px]', 'opacity-0');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 3000);
+        }
+
+        // গরুর নামের ফিল্ড আপডেট
+        function updateAnimalInfo() {
+            const name = document.getElementById('animal-name').value;
+            document.getElementById('print-animal-name').textContent = name;
+            document.getElementById('print-view-animal-name').textContent = name;
+            localStorage.setItem('meat_animal_name', name);
+        }
+
+        // হিসাব আপডেট এবং রি-রেন্ডার করার মূল মেকানিজম
+        function updateCalculations() {
+            const totalWeightInput = document.getElementById('total-weight');
+            let totalWeight = parseFloat(totalWeightInput.value) || 0;
+            if (totalWeight < 0) totalWeight = 0;
+
+            localStorage.setItem('meat_total_weight', totalWeight);
+
+            // ক্যাটাগরি ভিত্তিক যোগফল বের করা
+            const categoryTotals = { relative: 0, neighbor: 0, poor: 0, self: 0 };
+            let totalDistributed = 0;
+
+            recipients.forEach(item => {
+                const weight = parseFloat(item.weight) || 0;
+                totalDistributed += weight;
+                if (categoryTotals[item.category] !== undefined) {
+                    categoryTotals[item.category] += weight;
+                }
+            });
+
+            const remaining = Math.max(0, totalWeight - totalDistributed);
+            const percent = totalWeight > 0 ? Math.min(100, Math.round((totalDistributed / totalWeight) * 100)) : 0;
+
+            // ডিসপ্লে আপডেট
+            document.getElementById('display-total-weight').textContent = totalWeight;
+            document.getElementById('display-distributed').textContent = totalDistributed.toFixed(2);
+            document.getElementById('display-remaining').textContent = remaining.toFixed(2);
+            document.getElementById('display-percent').textContent = percent;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+
+            // প্রিন্ট ভিউ আপডেট
+            document.getElementById('print-view-total-weight').textContent = totalWeight;
+
+            // ক্যাটাগরি ভিত্তিক সামারি আপডেট
+            for (const cat in categoryTotals) {
+                const sumEl = document.getElementById(`sum-${cat}`);
+                const barEl = document.getElementById(`bar-${cat}`);
+                if (sumEl) sumEl.textContent = categoryTotals[cat].toFixed(1);
+                
+                if (barEl) {
+                    const catPercent = totalWeight > 0 ? Math.min(100, (categoryTotals[cat] / totalWeight) * 100) : 0;
+                    barEl.style.width = `${catPercent}%`;
+                }
+            }
+
+            // ফুটার সামারি আপডেট
+            document.getElementById('summary-count').textContent = `${recipients.length} জন`;
+            document.getElementById('summary-distributed').textContent = `${totalDistributed.toFixed(2)} কেজি`;
+            document.getElementById('summary-remaining').textContent = `${remaining.toFixed(2)} কেজি`;
+
+            renderTable();
+        }
+
+        // প্রাপক তালিকা রেন্ডার করা
+        function renderTable() {
+            const tableBody = document.getElementById('recipient-table-body');
+            tableBody.innerHTML = '';
+
+            if (recipients.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-slate-400">তালিকায় কোনো বিতরণ এন্ট্রি নেই। উপরে ফর্ম পূরণ করে যোগ করুন।</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            recipients.forEach((item, index) => {
+                const meta = categoryMeta[item.category] || { label: item.category, textClass: 'text-slate-600 bg-slate-50' };
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+                row.innerHTML = `
+                    <td class="py-3 px-5 text-right text-slate-400 font-mono text-xs">${index + 1}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-800">${item.name}</td>
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${meta.textClass}">
+                            ${meta.label}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-right font-bold text-slate-900">${item.weight} কেজি</td>
+                    <td class="py-3 px-4 text-slate-500 text-xs hidden sm:table-cell">${item.note || '—'}</td>
+                    <td class="py-3 px-4 text-center no-print">
+                        <button onclick="deleteRecipient('${item.id}')" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="মুছে ফেলুন">
+                            ❌
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // নতুন বিতরণকারী বা অংশ যোগ করা
+        function addRecipient(event) {
+            event.preventDefault();
+
+            const nameInput = document.getElementById('recipient-name');
+            const categoryInput = document.getElementById('recipient-category');
+            const weightInput = document.getElementById('recipient-weight');
+            const noteInput = document.getElementById('recipient-note');
+
+            const name = nameInput.value.trim();
+            const category = categoryInput.value;
+            const weight = parseFloat(weightInput.value);
+            const note = noteInput.value.trim();
+
+            if (!name || isNaN(weight) || weight <= 0) {
+                showToast('অনুগ্রহ করে সঠিক তথ্য দিন।', true);
+                return;
+            }
+
+            const newRecipient = {
+                id: Date.now().toString(),
+                name,
+                category,
+                weight,
+                note
+            };
+
+            recipients.unshift(newRecipient);
+            localStorage.setItem('meat_recipients', JSON.stringify(recipients));
+
+            // ফর্ম রিসেট
+            nameInput.value = '';
+            weightInput.value = '';
+            noteInput.value = '';
+
+            updateCalculations();
+            showToast(`${name} এর জন্য ${weight} কেজি মাংস তালিকাভুক্ত হয়েছে!`);
+        }
+
+        // কোনো এন্ট্রি মুছে ফেলা
+        function deleteRecipient(id) {
+            recipients = recipients.filter(item => item.id !== id);
+            localStorage.setItem('meat_recipients', JSON.stringify(recipients));
+            updateCalculations();
+            showToast('হিসাবটি মুছে ফেলা হয়েছে।');
+        }
+
+        // ৩ ভাগে সমান বন্টন (ইসলামী অনুশাসন)
+        function autoThreeWaySplit() {
+            const totalWeight = parseFloat(document.getElementById('total-weight').value) || 0;
+            if (totalWeight <= 0) {
+                showToast('অনুগ্রহ করে প্রথমে পশুর মোট ওজন দিন।', true);
+                return;
+            }
+
+            if (recipients.length > 0) {
+                const conf = confirm('এটি করলে আপনার বর্তমান বিতরণ তালিকাটি মুছে যাবে এবং সম্পূর্ণ নতুন ৩টি ভাগ তৈরি হবে। আপনি কি নিশ্চিত?');
+                if (!conf) return;
+            }
+
+            const splitWeight = parseFloat((totalWeight / 3).toFixed(2));
+            recipients = [
+                { id: 'auto-1', name: 'আত্মীয়-স্বজনদের অংশ (১/৩)', category: 'relative', weight: splitWeight, note: 'ইসলামী অনুশাসন অনুযায়ী সমান ৩ ভাগের ১ ভাগ' },
+                { id: 'auto-2', name: 'গরীব ও দুস্থদের অংশ (১/৩)', category: 'poor', weight: splitWeight, note: 'ইসলামী অনুশাসন অনুযায়ী সমান ৩ ভাগের ১ ভাগ' },
+                { id: 'auto-3', name: 'আমাদের নিজেদের অংশ (১/৩)', category: 'self', weight: splitWeight, note: 'ইসলামী অনুশাসন অনুযায়ী সমান ৩ ভাগের ১ ভাগ' }
+            ];
+
+            localStorage.setItem('meat_recipients', JSON.stringify(recipients));
+            updateCalculations();
+            showToast('সফলভাবে ৩ ভাগে সমবন্টন করা হয়েছে!');
+        }
+
+        // সকল ডাটা ক্লিয়ার করা
+        function clearAllData() {
+            const conf = confirm('আপনি কি নিশ্চিত যে সম্পূর্ণ তালিকা ও হিসাব মুছে ফেলতে চান? এটি রিভার্স করা যাবে না।');
+            if (conf) {
+                recipients = [];
+                localStorage.removeItem('meat_recipients');
+                updateCalculations();
+                showToast('সমস্ত হিসাব মুছে ফেলা হয়েছে!', true);
+            }
+        }
+
+        // --- অ্যাপ্লিকেশন লোড ইভেন্ট ---
+        window.onload = function() {
+            // পূর্বের সংরক্ষিত ডাটা থাকলে তা ইনপুট ফিল্ডে রি-স্টোর করা
+            const savedWeight = localStorage.getItem('meat_total_weight');
+            if (savedWeight) {
+                document.getElementById('total-weight').value = savedWeight;
+            }
+            const savedName = localStorage.getItem('meat_animal_name');
+            if (savedName) {
+                document.getElementById('animal-name').value = savedName;
+            }
+
+            // আজকের তারিখ সেটআপ করা প্রিন্ট ভিউ এর জন্য
+            const today = new Date();
+            const dateStr = today.toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('print-date').textContent = dateStr;
+
+            updateAnimalInfo();
+            updateCalculations();
+        };
+    </script>
+</body>
+</html>
 
 ```
